@@ -88,7 +88,7 @@ public class ComplexityCounter
 
     private int GetShaderTypeCost(Pass pass, ShaderType type, string[] keywords)
     {
-        if (!pass.HasShaderStage(ShaderType.Fragment))
+        if (!pass.HasShaderStage(type))
             return 0;
 
         var compile = pass.CompileVariant(type, keywords, UnityEditor.Rendering.ShaderCompilerPlatform.D3D, BuildTarget.StandaloneWindows64);
@@ -109,7 +109,60 @@ public class ComplexityCounter
         if (!TryGetShaderCodeChunk(dxbc_data, out byte[] shdr_data))
             return 0;
 
-        return 0;
+        return CountInstructions(shdr_data);
+    }
+
+    //d3d11TokenizedProgramFormat.hpp
+    const uint OPCODE_CUSTOMDATA = 53;
+    const uint OPCODE_DCL_RESOURCE = 88;
+    const uint OPCODE_DCL_GLOBAL_FLAGS = 106;
+    const uint OPCODE_DCL_STREAM = 143;
+    const uint OPCODE_DCL_RESOURCE_STRUCTURED = 162;
+    const uint OPCODE_DCL_GS_INSTANCE_COUNT = 206;
+
+    private int CountInstructions(byte[] shdr_data)
+    {
+        if (shdr_data.Length < 8)
+            return 0;
+
+        uint program_length = BitConverter.ToUInt32(shdr_data, 4);
+        uint token_count = Math.Min(program_length, (uint)(shdr_data.Length / 4));
+
+        int instruction_count = 0;
+        uint token_index = 2;
+        while (token_index < token_count)
+        {
+            uint opcode_token = BitConverter.ToUInt32(shdr_data, (int)token_index * 4);
+            uint opcode = opcode_token & 0x7FF;
+            uint length = (opcode_token >> 24) & 0x7F;
+
+            if (opcode == OPCODE_CUSTOMDATA)
+            {
+                if (token_index + 1 >= token_count)
+                    break;
+                length = BitConverter.ToUInt32(shdr_data, (int)(token_index + 1) * 4);
+            }
+
+            if (length == 0)
+            {
+                Debug.LogWarning($"Invalid instruction length at token {token_index} (opcode {opcode})");
+                break;
+            }
+
+            if (!IsDeclaration(opcode))
+                instruction_count++;
+
+            token_index += length;
+        }
+
+        return instruction_count;
+    }
+
+    private bool IsDeclaration(uint opcode)
+    {
+        return (opcode >= OPCODE_DCL_RESOURCE && opcode <= OPCODE_DCL_GLOBAL_FLAGS)
+            || (opcode >= OPCODE_DCL_STREAM && opcode <= OPCODE_DCL_RESOURCE_STRUCTURED)
+            || opcode == OPCODE_DCL_GS_INSTANCE_COUNT;
     }
 
     private bool TryGetShaderCodeChunk(byte[] dxbc_data, out byte[] shdr_data)
