@@ -19,7 +19,8 @@ public class ComplexityCounter
         "SRPDefaultUnlit",
         "UniversalGBuffer"
     };
-    private List<Material> _cached_materials = new List<Material>();
+    private List<Material> _materials = new List<Material>();
+    private Dictionary<(Shader, string), int> _cached_costs = new Dictionary<(Shader, string), int>();
 
     static ShaderTagId LIGHT_MODE_SHADER_KEY = new ShaderTagId("LightMode");
 
@@ -39,14 +40,14 @@ public class ComplexityCounter
             if (renderer == null)
                 return;
 
-            renderer.GetSharedMaterials(_cached_materials);
-            int material_count = _cached_materials.Count;
+            renderer.GetSharedMaterials(_materials);
+            int material_count = _materials.Count;
             if (material_count < 1)
                 continue;
 
             int cost = 0;
             for(int i = 0; i < material_count; i++) {
-                cost += GetCost(_cached_materials[i]);
+                cost += GetCost(_materials[i]);
             }
 
             costPerRenderer.Add(renderer, cost);
@@ -58,6 +59,20 @@ public class ComplexityCounter
         if(material == null || material.shader == null) return 0;
 
         var shader = material.shader;
+        var keywords = material.shaderKeywords;
+
+        Array.Sort(keywords, StringComparer.Ordinal);
+        var cache_key = (shader, string.Join(" ", keywords));
+        if (_cached_costs.TryGetValue(cache_key, out int cached_cost))
+            return cached_cost;
+
+        int cost = ComputeCost(shader, keywords);
+        _cached_costs.Add(cache_key, cost);
+        return cost;
+    }
+
+    private int ComputeCost(Shader shader, string[] keywords)
+    {
         var shader_data = ShaderUtil.GetShaderData(shader);
         var sub_shader = shader_data.ActiveSubshader;
 
@@ -76,7 +91,6 @@ public class ComplexityCounter
             return 0;
 
         Pass color_pass = sub_shader.GetPass(lighting_pass_index);
-        var keywords = material.shaderKeywords;
 
         int cost = 0;
         cost += GetShaderTypeCost(color_pass, ShaderType.Fragment, keywords);
