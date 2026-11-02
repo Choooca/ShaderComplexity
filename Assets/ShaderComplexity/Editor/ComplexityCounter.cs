@@ -12,15 +12,18 @@ using static UnityEditor.ShaderData;
 
 public class ComplexityCounter
 {
-    static readonly string[] COLOR_LIGHT_MODE =
+    public static readonly string[] COLOR_LIGHT_MODE =
     {
         "UniversalForward",
         "UniversalForwardOnly",
         "SRPDefaultUnlit",
         "UniversalGBuffer"
     };
+
+    static readonly Vector4 UNKNOWN_COST = new Vector4(0, 0, 1, 1);
+
     private List<Material> _materials = new List<Material>();
-    private Dictionary<(Shader, string), int> _cached_costs = new Dictionary<(Shader, string), int>();
+    private Dictionary<(Shader, string), Vector4> _cached_costs = new Dictionary<(Shader, string), Vector4>();
 
     static ShaderTagId LIGHT_MODE_SHADER_KEY = new ShaderTagId("LightMode");
 
@@ -30,48 +33,63 @@ public class ComplexityCounter
         new ComplexityCounter().CalculateComplexityInScene();
     }
 
+    [MenuItem("Tools/Shader Complexity/Clear")]
+    static void ClearFromMenu()
+    {
+        ShaderComplexityFeature._complexities.Clear();
+        UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+    }
+
     void CalculateComplexityInScene()
     {
         var renderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
-        Dictionary<Renderer, int> costPerRenderer = new Dictionary<Renderer, int>();
+        var complexities = ShaderComplexityFeature._complexities;
+        complexities.Clear();
 
         foreach(var renderer in renderers)
         {
             if (renderer == null)
-                return;
+                continue;
 
             renderer.GetSharedMaterials(_materials);
             int material_count = _materials.Count;
             if (material_count < 1)
                 continue;
 
-            int cost = 0;
+            var costs = new Vector4[material_count];
             for(int i = 0; i < material_count; i++) {
-                cost += GetCost(_materials[i]);
+                costs[i] = GetCost(_materials[i]);
             }
 
-            costPerRenderer.Add(renderer, cost);
+            complexities.Add(renderer, costs);
         }
+
+        foreach(var pair  in complexities)
+        {
+            Debug.Log($"{pair.Key} cost : {string.Join(", ", pair.Value)}");
+        }
+
+        UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
     }
 
-    private int GetCost(Material material)
+    private Vector4 GetCost(Material material)
     {
-        if(material == null || material.shader == null) return 0;
+        if(material == null || material.shader == null) return UNKNOWN_COST;
 
         var shader = material.shader;
         var keywords = material.shaderKeywords;
 
         Array.Sort(keywords, StringComparer.Ordinal);
         var cache_key = (shader, string.Join(" ", keywords));
-        if (_cached_costs.TryGetValue(cache_key, out int cached_cost))
+        if (_cached_costs.TryGetValue(cache_key, out Vector4 cached_cost))
             return cached_cost;
 
-        int cost = ComputeCost(shader, keywords);
+        Vector4 cost = ComputeCost(shader, keywords);
         _cached_costs.Add(cache_key, cost);
         return cost;
     }
 
-    private int ComputeCost(Shader shader, string[] keywords)
+    private Vector4 ComputeCost(Shader shader, string[] keywords)
     {
         var shader_data = ShaderUtil.GetShaderData(shader);
         var sub_shader = shader_data.ActiveSubshader;
@@ -84,20 +102,19 @@ public class ComplexityCounter
             if(COLOR_LIGHT_MODE.Any(s => s.Equals(lightMode)))
             {
                 lighting_pass_index = i;
+                break;
             }
         }
 
         if(lighting_pass_index  == -1)
-            return 0;
+            return UNKNOWN_COST;
 
         Pass color_pass = sub_shader.GetPass(lighting_pass_index);
 
-        int cost = 0;
-        cost += GetShaderTypeCost(color_pass, ShaderType.Fragment, keywords);
-        cost += GetShaderTypeCost(color_pass, ShaderType.Vertex, keywords);
+        int frag_cost = GetShaderTypeCost(color_pass, ShaderType.Fragment, keywords);
+        int vert_cost = GetShaderTypeCost(color_pass, ShaderType.Vertex, keywords);
 
-
-        return cost;
+        return new Vector4(frag_cost, vert_cost, 1, 0);
     }
 
     private int GetShaderTypeCost(Pass pass, ShaderType type, string[] keywords)

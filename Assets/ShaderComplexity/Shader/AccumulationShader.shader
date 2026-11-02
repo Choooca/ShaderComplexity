@@ -1,10 +1,5 @@
 Shader "Custom/AccumulationShader"
 {
-    Properties
-    {
-        complexity ("Complexity (frag, vert, layer, unknown)", Vector) = (0, 0, -1, 0)
-    }
-
     SubShader
     {
         Tags { "RenderPipeline" = "UniversalPipeline" }
