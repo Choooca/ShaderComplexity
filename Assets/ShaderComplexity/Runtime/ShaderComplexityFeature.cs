@@ -10,6 +10,8 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
 {
     public static readonly Dictionary<Renderer, Vector4[]> _complexities = new Dictionary<Renderer, Vector4[]>();
 
+    public static readonly HashSet<Camera> _enabled_cameras = new HashSet<Camera>();
+
     [SerializeField] private Shader _accumulation_shader;
     [SerializeField] private RenderPassEvent _render_pass_event = RenderPassEvent.AfterRenderingTransparents;
 
@@ -34,6 +36,9 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
+        if (!_enabled_cameras.Contains(renderingData.cameraData.camera))
+            return;
+
         if (_accumulation_shader == null || _complexities.Count == 0)
             return;
 

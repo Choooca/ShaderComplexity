@@ -28,7 +28,7 @@ public class ComplexityCounter
     static ShaderTagId LIGHT_MODE_SHADER_KEY = new ShaderTagId("LightMode");
 
     [MenuItem("Tools/Shader Complexity/Calculate In Scene")]
-    static void CalculateFromMenu()
+    public static void CalculateFromMenu()
     {
         new ComplexityCounter().CalculateComplexityInScene();
     }
