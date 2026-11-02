@@ -71,6 +71,9 @@ MonoBehaviour:
   m_Active: 1
   _accumulation_shader: {fileID: 4800000, guid: 5d1269ec55075f24cac12230eb5209c5, type: 3}
   _render_pass_event: 500
+  _visualization_shader: {fileID: 4800000, guid: 94260d5697aa91a468ecb545f1cd4ad1, type: 3}
+  _visualization_pass_event: 600
+  _max_complexity: 300
 --- !u!114 &7833122117494664109
 MonoBehaviour:
   m_ObjectHideFlags: 0

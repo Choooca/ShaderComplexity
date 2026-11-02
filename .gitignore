@@ -135,3 +135,8 @@ crashlytics-build.properties
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+/[Aa]ssets/[Ss]amples/
+/[Aa]ssets/[Ss]amples.meta
+/[Aa]ssets/[Cc]omplexity[Tt]ests/
+/[Aa]ssets/[Cc]omplexity[Tt]ests.meta

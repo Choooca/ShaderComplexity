@@ -13,13 +13,23 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
     [SerializeField] private Shader _accumulation_shader;
     [SerializeField] private RenderPassEvent _render_pass_event = RenderPassEvent.AfterRenderingTransparents;
 
+    [SerializeField] private Shader _visualization_shader;
+    [SerializeField] private RenderPassEvent _visualization_pass_event = RenderPassEvent.AfterRenderingPostProcessing;
+
+    [SerializeField, Min(1f)] private float _max_complexity = 300f;
+
     private ShaderComplexityPass _pass;
+    private ShaderComplexityVisualizationPass _visualization_pass;
 
     public override void Create()
     {
         _pass?.Dispose();
         _pass = new ShaderComplexityPass(_accumulation_shader);
         _pass.renderPassEvent = _render_pass_event;
+
+        _visualization_pass?.Dispose();
+        _visualization_pass = new ShaderComplexityVisualizationPass(_visualization_shader);
+        _visualization_pass.renderPassEvent = _visualization_pass_event;
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -28,12 +38,21 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
             return;
 
         renderer.EnqueuePass(_pass);
+
+        if (_visualization_shader == null)
+            return;
+
+        _visualization_pass.max_complexity = _max_complexity;
+        renderer.EnqueuePass(_visualization_pass);
     }
 
     protected override void Dispose(bool disposing)
     {
         _pass?.Dispose();
         _pass = null;
+
+        _visualization_pass?.Dispose();
+        _visualization_pass = null;
     }
 }
 
@@ -93,7 +112,6 @@ public class ShaderComplexityPass : ScriptableRenderPass, IDisposable
             builder.SetRenderAttachment(accumulation, 0, AccessFlags.Write);
             builder.SetRenderAttachmentDepth(resource_data.activeDepthTexture, AccessFlags.Read);
 
-            builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
 
             builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
@@ -129,6 +147,57 @@ public class ShaderComplexityPass : ScriptableRenderPass, IDisposable
                     submesh = i
                 });
             }
+        }
+    }
+
+    public void Dispose()
+    {
+        CoreUtils.Destroy(_material);
+    }
+}
+
+public class ShaderComplexityVisualizationPass : ScriptableRenderPass, IDisposable
+{
+    static readonly int MAX_COMPLEXITY_ID = Shader.PropertyToID("_max_complexity");
+
+    private class PassData
+    {
+        public TextureHandle accumulation;
+        public Material material;
+    }
+
+    public float max_complexity;
+
+    private readonly Material _material;
+
+    public ShaderComplexityVisualizationPass(Shader shader)
+    {
+        if (shader != null)
+            _material = CoreUtils.CreateEngineMaterial(shader);
+    }
+
+    public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+    {
+        if (!frameData.Contains<ShaderComplexityData>())
+            return;
+
+        var resource_data = frameData.Get<UniversalResourceData>();
+        var complexity_data = frameData.Get<ShaderComplexityData>();
+
+        _material.SetFloat(MAX_COMPLEXITY_ID, max_complexity);
+
+        using (var builder = renderGraph.AddRasterRenderPass<PassData>("Shader Complexity Visualization", out var pass_data))
+        {
+            pass_data.accumulation = complexity_data.accumulation;
+            pass_data.material = _material;
+
+            builder.UseTexture(complexity_data.accumulation, AccessFlags.Read);
+            builder.SetRenderAttachment(resource_data.activeColorTexture, 0, AccessFlags.Write);
+
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+            {
+                Blitter.BlitTexture(context.cmd, data.accumulation, new Vector4(1, 1, 0, 0), data.material, 0);
+            });
         }
     }
 
