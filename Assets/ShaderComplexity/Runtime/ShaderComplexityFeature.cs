@@ -12,6 +12,8 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
 
     public static readonly HashSet<Camera> _enabled_cameras = new HashSet<Camera>();
 
+    public static float _displayed_max_complexity { get; private set; } = 300f;
+
     [SerializeField] private Shader _accumulation_shader;
     [SerializeField] private RenderPassEvent _render_pass_event = RenderPassEvent.AfterRenderingTransparents;
 
@@ -25,6 +27,8 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
 
     public override void Create()
     {
+        _displayed_max_complexity = _max_complexity;
+
         _pass?.Dispose();
         _pass = new ShaderComplexityPass(_accumulation_shader);
         _pass.renderPassEvent = _render_pass_event;
