@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using Unity.VisualScripting;
 using UnityEditor;
 using UnityEditor.Rendering;
 using UnityEngine;
@@ -63,12 +61,6 @@ public class ComplexityCounter
 
             complexities.Add(renderer, costs);
         }
-
-        foreach(var pair  in complexities)
-        {
-            Debug.Log($"{pair.Key} cost : {string.Join(", ", pair.Value)}");
-        }
-
         UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
     }
 

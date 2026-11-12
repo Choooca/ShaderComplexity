@@ -29,6 +29,11 @@ public class ShaderComplexityFeature : ScriptableRendererFeature
     {
         _displayed_max_complexity = _max_complexity;
 
+        if (_accumulation_shader == null)
+            _accumulation_shader = Shader.Find("Custom/AccumulationShader");
+        if (_visualization_shader == null)
+            _visualization_shader = Shader.Find("Custom/ComplexityVisualization");
+
         _pass?.Dispose();
         _pass = new ShaderComplexityPass(_accumulation_shader);
         _pass.renderPassEvent = _render_pass_event;

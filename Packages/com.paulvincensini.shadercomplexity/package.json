@@ -1,0 +1,13 @@
+{
+  "name": "com.paulvincensini.shadercomplexity",
+  "version": "0.1.0",
+  "displayName": "Shader Complexity",
+  "description": "Scene view draw mode visualizing per-material shader instruction cost (URP renderer feature + editor tools).",
+  "unity": "6000.3",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.3.0"
+  },
+  "author": {
+    "name": "Paul Vincensini"
+  }
+}
